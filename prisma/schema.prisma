@@ -7,9 +7,58 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/// Prisma schema placeholder for future Next.js integration.
-model Placeholder {
-  id Int @id @default(autoincrement())
+enum NewsStatus {
+  PENDING
+  PROCESSED
+  FAILED
+}
+
+model Source {
+  id          Int      @id
+  name        String   @unique
+  categoryUrl String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  news        News[]
+  pipelineLog PipelineLog[]
+
+  @@map("sources")
+}
+
+model News {
+  id               Int        @id @default(autoincrement())
+  sourceId         Int
+  sourceUrl        String     @unique
+  originalTitle    String
+  originalContent  String
+  originalLanguage String     @default("id")
+  status           NewsStatus @default(PENDING)
+  publishedAt      DateTime?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  source Source @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+
+  @@map("news")
+}
+
+model PipelineLog {
+  id               Int      @id @default(autoincrement())
+  sourceId         Int
+  startTime        DateTime
+  endTime          DateTime?
+  status           String
+  articlesScraped  Int      @default(0)
+  articlesInserted Int      @default(0)
+  errorMessage     String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  source Source @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+
+  @@map("pipeline_logs")
 }
 
 model Source {

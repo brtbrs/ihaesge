@@ -1,0 +1,35 @@
+import * as cheerio from "cheerio";
+import { ArticleMeta, SourceScraper } from "../types";
+import { extractArticleMetaList } from "../utils/article_extractor";
+import { httpClient } from "../utils/http_client";
+
+export class CnbcScraper implements SourceScraper {
+  readonly sourceName = "CNBC Indonesia";
+  readonly sourceId = 1;
+  readonly categoryUrl = "https://www.cnbcindonesia.com/market";
+
+  async getArticleList(): Promise<ArticleMeta[]> {
+    const html = await httpClient.getHtml(this.categoryUrl);
+    const candidates = extractArticleMetaList(
+      html,
+      this.categoryUrl,
+      "a[href*='cnbcindonesia.com/market/']",
+    );
+
+    return candidates.filter((item) => /\/market\/\d{8}\//.test(item.url)).slice(0, 50);
+  }
+
+  async getArticleContent(url: string): Promise<string> {
+    const html = await httpClient.getHtml(url);
+    const $ = cheerio.load(html);
+    const articleHtml = $("article .detail_text, .detail_text, article").first().html() ?? "";
+
+    if (!articleHtml.trim()) {
+      const rendered = await httpClient.getHtml(url, true);
+      const rendered$ = cheerio.load(rendered);
+      return rendered$("article .detail_text, .detail_text, article").first().html() ?? "";
+    }
+
+    return articleHtml;
+  }
+}
