@@ -21,6 +21,8 @@ async function processSource(scraper: SourceScraper): Promise<void> {
   let insertedCount = 0;
   let skippedCount = 0;
   let errorCount = 0;
+  const skippedDetails: Array<{ title: string; reason: string }> = [];
+  const errorDetails: Array<{ title: string; message: string }> = [];
 
   const { pipelineLogId, lastScrappedAt } = await newsService.startPipeline(scraper);
 
@@ -36,14 +38,17 @@ async function processSource(scraper: SourceScraper): Promise<void> {
       try {
         const articleData = await scraper.getArticleContent(article.url);
         const cleanContent = cleanHtmlToText(articleData.contentHtml);
+        const title = articleData.title?.trim() || article.title.trim() || "Untitled";
 
         if (!cleanContent) {
           skippedCount += 1;
+          skippedDetails.push({
+            title,
+            reason: "empty content after HTML cleanup",
+          });
           await delay(1_500);
           continue;
         }
-
-        const title = articleData.title?.trim() || article.title.trim() || "Untitled";
 
         const inserted = await newsService.createNewsIfNotExists({
           scraper,
@@ -56,10 +61,24 @@ async function processSource(scraper: SourceScraper): Promise<void> {
           insertedCount += 1;
         } else {
           skippedCount += 1;
+          skippedDetails.push({
+            title,
+            reason: "already exists (duplicate article)",
+          });
         }
       } catch (error) {
         errorCount += 1;
         skippedCount += 1;
+        const title = article.title.trim() || "Untitled";
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        skippedDetails.push({
+          title,
+          reason: "failed to process article",
+        });
+        errorDetails.push({
+          title,
+          message: errorMessage,
+        });
         console.error(`[${scraper.sourceName}] Failed article: ${article.url}`, error);
       }
 
@@ -72,9 +91,24 @@ async function processSource(scraper: SourceScraper): Promise<void> {
       skipped: skippedCount,
     });
 
-    console.log(
-      `[${scraper.sourceName}]\nScraped: ${scrapedCount}\nInserted: ${insertedCount}\nSkipped: ${skippedCount}\nErrors: ${errorCount}`,
-    );
+    const skippedLines = skippedDetails
+      .map((detail) => `\ttitle: ${detail.title}\n\tskip reason: ${detail.reason}`)
+      .join("\n");
+    const errorLines = errorDetails
+      .map((detail) => `\ttitle: ${detail.title}\n\terror message: ${detail.message}`)
+      .join("\n");
+
+    console.log(`[${scraper.sourceName}]`);
+    console.log(`Scraped: ${scrapedCount}`);
+    console.log(`Inserted: ${insertedCount}`);
+    console.log(`Skipped: ${skippedCount}`);
+    if (skippedLines) {
+      console.log(skippedLines);
+    }
+    console.log(`Errors: ${errorCount}`);
+    if (errorLines) {
+      console.log(errorLines);
+    }
   } catch (error) {
     await newsService.failPipeline(pipelineLogId, {
       scraped: scrapedCount,
