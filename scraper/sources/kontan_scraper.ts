@@ -1,5 +1,5 @@
 import * as cheerio from "cheerio";
-import { ArticleMeta, SourceScraper } from "../types";
+import { ArticleContent, ArticleMeta, SourceScraper } from "../types";
 import { extractArticleMetaList } from "../utils/article_extractor";
 import { httpClient } from "../utils/http_client";
 
@@ -17,17 +17,21 @@ export class KontanScraper implements SourceScraper {
       .slice(0, 50);
   }
 
-  async getArticleContent(url: string): Promise<string> {
+  async getArticleContent(url: string): Promise<ArticleContent> {
     const html = await httpClient.getHtml(url);
     const $ = cheerio.load(html);
-    const articleHtml = $(".read__content, .artikel, article").first().html() ?? "";
+    const title = $("h1").first().text().trim() || $("title").text().trim() || undefined;
+    const contentHtml = $(".read__content, .artikel, article").first().html() ?? "";
 
-    if (!articleHtml.trim()) {
+    if (!contentHtml.trim()) {
       const rendered = await httpClient.getHtml(url, true);
       const rendered$ = cheerio.load(rendered);
-      return rendered$(".read__content, .artikel, article").first().html() ?? "";
+      return {
+        title: rendered$("h1").first().text().trim() || rendered$("title").text().trim() || undefined,
+        contentHtml: rendered$(".read__content, .artikel, article").first().html() ?? "",
+      };
     }
 
-    return articleHtml;
+    return { title, contentHtml };
   }
 }
