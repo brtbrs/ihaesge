@@ -11,3 +11,298 @@ datasource db {
 model Placeholder {
   id Int @id @default(autoincrement())
 }
+
+model Source {
+  id                     String    @id @default(uuid())
+  name                   String
+  url                    String
+  rssUrl                 String?
+  scraperIntervalMinutes Int       @default(60)
+  lastScrappedAt         DateTime?
+  active                 Boolean   @default(true)
+  createdAt              DateTime  @default(now())
+
+  news News[]
+}
+
+model Stock {
+  id        String      @id @default(uuid())
+  ticker    String      @unique
+  name      String
+  sector    String
+  industry  String
+  status    StockStatus @default(LISTED)
+  createdAt DateTime    @default(now())
+
+  news       NewsStock[]
+  watchlists Watchlist[]
+  aliases    StockAlias[]
+  events     CorporateEvent[]
+}
+
+model StockAlias {
+  id      String @id @default(uuid())
+  alias   String
+  stockId String
+
+  stock Stock @relation(fields: [stockId], references: [id])
+
+  @@unique([alias])
+}
+
+model CorporateEvent {
+  id        String    @id @default(uuid())
+  stockId   String
+  title     String
+  eventType EventType
+  eventDate DateTime
+  source    String?
+
+  createdAt DateTime @default(now())
+
+  stock Stock @relation(fields: [stockId], references: [id])
+}
+
+model News {
+  id               String     @id @default(uuid())
+  sourceId         String
+  sourceUrl        String     @unique
+  originalTitle    String
+  originalContent  String
+  originalLanguage String     @default("id")
+  titleId          String?
+  titleEn          String?
+  summaryId        String?
+  summaryEn        String?
+  contentId        String?
+  contentEn        String?
+  sentiment        Sentiment?
+  duplicateId      String?
+  publishedAt      DateTime?
+  createdAt        DateTime   @default(now())
+  status           NewsStatus @default(PENDING)
+
+  stocks             NewsStock[]
+  tags               NewsTag[]
+  audio              Audio?
+  audioListens       AudioListen[]
+  pipelineLogDetails PipelineLogDetail[]
+
+  source Source @relation(fields: [sourceId], references: [id])
+
+  @@index([publishedAt, status])
+}
+
+model NewsStock {
+  id      String @id @default(uuid())
+  newsId  String
+  stockId String
+
+  news  News  @relation(fields: [newsId], references: [id])
+  stock Stock @relation(fields: [stockId], references: [id])
+
+  @@unique([newsId, stockId])
+}
+
+model Tag {
+  id   String @id @default(uuid())
+  name String @unique
+
+  news NewsTag[]
+}
+
+model NewsTag {
+  id     String @id @default(uuid())
+  newsId String
+  tagId  String
+
+  news News @relation(fields: [newsId], references: [id])
+  tag  Tag  @relation(fields: [tagId], references: [id])
+
+  @@unique([newsId, tagId])
+}
+
+model User {
+  id        String       @id @default(uuid())
+  email     String       @unique
+  name      String
+  provider  String
+  status    CommonStatus @default(ACTIVE)
+  createdAt DateTime     @default(now())
+
+  watchlists    Watchlist[]
+  settings      UserSettings?
+  sessionLogs   UserSessionLog[]
+  audioListens  AudioListen[]
+  subscriptions Subscription[]
+  payments      Payment[]
+}
+
+model UserSettings {
+  id            String @id @default(uuid())
+  userId        String @unique
+  theme         String @default("light")
+  language      String @default("id")
+  playbackSpeed Float  @default(1.0)
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model UserSessionLog {
+  id        String    @id @default(uuid())
+  userId    String
+  loginAt   DateTime
+  logoutAt  DateTime?
+  ipAddress String?
+  device    String?
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Watchlist {
+  id      String @id @default(uuid())
+  userId  String
+  stockId String
+
+  user  User  @relation(fields: [userId], references: [id])
+  stock Stock @relation(fields: [stockId], references: [id])
+
+  @@unique([userId, stockId])
+}
+
+model Audio {
+  id         String      @id @default(uuid())
+  newsId     String      @unique
+  urlIdAudio String
+  urlEnAudio String
+  durationId Int?
+  durationEn Int?
+  status     AudioStatus @default(ACTIVE)
+  createdAt  DateTime    @default(now())
+
+  news News @relation(fields: [newsId], references: [id])
+}
+
+model AudioListen {
+  id             String    @id @default(uuid())
+  userId         String
+  newsId         String
+  startedAt      DateTime
+  finishedAt     DateTime?
+  listenDuration Int? // seconds listened
+  createdAt      DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+  news News @relation(fields: [newsId], references: [id])
+
+  @@index([userId])
+  @@index([newsId])
+}
+
+model PipelineLog {
+  id           String    @id @default(uuid())
+  sourceId     String
+  startTime    DateTime
+  endTime      DateTime?
+  totalFound   Int?
+  totalSaved   Int?
+  totalSkipped Int?
+  createdAt    DateTime  @default(now())
+
+  details PipelineLogDetail[]
+}
+
+model PipelineLogDetail {
+  id            String                  @id @default(uuid())
+  pipelineLogId String
+  newsId        String
+  status        PipelineLogDetailStatus @default(SUCCESS)
+  errorMessage  String?
+  createdAt     DateTime                @default(now())
+
+  pipelineLog PipelineLog @relation(fields: [pipelineLogId], references: [id])
+  news        News        @relation(fields: [newsId], references: [id])
+}
+
+model Plan {
+  id     String       @id @default(uuid())
+  name   String
+  price  Float
+  status CommonStatus @default(ACTIVE)
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id        String             @id @default(uuid())
+  userId    String
+  planId    String
+  startDate DateTime
+  endDate   DateTime
+  status    SubscriptionStatus @default(NEW)
+
+  user      User      @relation(fields: [userId], references: [id])
+  plan      Plan      @relation(fields: [planId], references: [id])
+  payment   Payment[]
+}
+
+model Payment {
+  id             String   @id @default(uuid())
+  userId         String
+  subscriptionId String
+  amount         Float
+  provider       String
+  invoice        String?
+  status         String
+  createdAt      DateTime @default(now())
+
+  user         User         @relation(fields: [userId], references: [id])
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+}
+
+enum CommonStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum StockStatus {
+  LISTED
+  DELISTED
+}
+
+enum NewsStatus {
+  PENDING
+  ACTIVE
+  DUPLICATE
+  ERROR
+}
+
+enum AudioStatus {
+  ACTIVE
+  INACTIVE
+  ERROR
+}
+
+enum PipelineLogDetailStatus {
+  SUCCESS
+  FAIL
+}
+
+enum SubscriptionStatus {
+  NEW
+  PAID
+}
+
+enum Sentiment {
+  POSITIVE
+  NEUTRAL
+  NEGATIVE
+}
+
+enum EventType {
+  DIVIDEND
+  EARNINGS
+  IPO
+  RUPS
+  RIGHTSISSUE
+}
