@@ -16,7 +16,6 @@ async function processSource(scraper: SourceScraper): Promise<void> {
     data: {
       sourceId: scraper.sourceId,
       startTime,
-      status: "RUNNING",
     },
   });
 
@@ -26,12 +25,18 @@ async function processSource(scraper: SourceScraper): Promise<void> {
   try {
     await prisma.source.upsert({
       where: { id: scraper.sourceId },
-      update: { name: scraper.sourceName, categoryUrl: scraper.categoryUrl, isActive: true },
+      update: {
+        name: scraper.sourceName,
+        url: scraper.sourceUrl,
+        rssUrl: scraper.rssUrl,
+        active: true,
+      },
       create: {
         id: scraper.sourceId,
         name: scraper.sourceName,
-        categoryUrl: scraper.categoryUrl,
-        isActive: true,
+        url: scraper.sourceUrl,
+        rssUrl: scraper.rssUrl,
+        active: true,
       },
     });
 
@@ -70,10 +75,15 @@ async function processSource(scraper: SourceScraper): Promise<void> {
       where: { id: pipelineLog.id },
       data: {
         endTime: new Date(),
-        status: "SUCCESS",
-        articlesScraped: scrapedCount,
-        articlesInserted: insertedCount,
+        totalFound: scrapedCount,
+        totalSaved: insertedCount,
+        totalSkipped: scrapedCount - insertedCount,
       },
+    });
+
+    await prisma.source.update({
+      where: { id: scraper.sourceId },
+      data: { lastScrappedAt: new Date() },
     });
 
     console.log(`[${scraper.sourceName}] Scraped=${scrapedCount}, Inserted=${insertedCount}`);
@@ -82,10 +92,9 @@ async function processSource(scraper: SourceScraper): Promise<void> {
       where: { id: pipelineLog.id },
       data: {
         endTime: new Date(),
-        status: "FAILED",
-        errorMessage: error instanceof Error ? error.message : "Unknown error",
-        articlesScraped: scrapedCount,
-        articlesInserted: insertedCount,
+        totalFound: scrapedCount,
+        totalSaved: insertedCount,
+        totalSkipped: Math.max(scrapedCount - insertedCount, 0),
       },
     });
 

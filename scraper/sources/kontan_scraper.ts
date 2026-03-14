@@ -5,12 +5,12 @@ import { httpClient } from "../utils/http_client";
 
 export class KontanScraper implements SourceScraper {
   readonly sourceName = "Kontan";
-  readonly sourceId = 2;
-  readonly categoryUrl = "https://investasi.kontan.co.id";
+  readonly sourceId = "kontan";
+  readonly sourceUrl = "https://investasi.kontan.co.id";
 
   async getArticleList(): Promise<ArticleMeta[]> {
-    const html = await httpClient.getHtml(this.categoryUrl);
-    const candidates = extractArticleMetaList(html, this.categoryUrl, "a[href*='/news/']");
+    const html = await httpClient.getHtml(this.sourceUrl);
+    const candidates = extractArticleMetaList(html, this.sourceUrl, "a[href*='/news/']");
 
     return candidates
       .filter((item) => item.url.includes("investasi.kontan.co.id/news/"))

@@ -6,8 +6,9 @@ export type ArticleMeta = {
 
 export interface SourceScraper {
   readonly sourceName: string;
-  readonly sourceId: number;
-  readonly categoryUrl: string;
+  readonly sourceId: string;
+  readonly sourceUrl: string;
+  readonly rssUrl?: string;
   getArticleList(): Promise<ArticleMeta[]>;
   getArticleContent(url: string): Promise<string>;
 }
