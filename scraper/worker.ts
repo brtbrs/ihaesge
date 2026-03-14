@@ -1,9 +1,13 @@
+import dotenv from "dotenv";
+
 import { PrismaClient } from "@prisma/client";
 import { BisnisScraper } from "./sources/bisnis_scraper";
 import { CnbcScraper } from "./sources/cnbc_scraper";
 import { KontanScraper } from "./sources/kontan_scraper";
 import { SourceScraper } from "./types";
 import { cleanHtmlToText } from "./utils/html_cleaner";
+
+dotenv.config({ path: "../.env" });
 
 const prisma = new PrismaClient();
 
