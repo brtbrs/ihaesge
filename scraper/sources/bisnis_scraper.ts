@@ -5,12 +5,16 @@ import { httpClient } from "../utils/http_client";
 
 export class BisnisScraper implements SourceScraper {
   readonly sourceName = "Bisnis Indonesia";
-  readonly sourceId = 3;
-  readonly categoryUrl = "https://finansial.bisnis.com";
+  readonly sourceId = "bisnis-indonesia";
+  readonly sourceUrl = "https://finansial.bisnis.com";
 
   async getArticleList(): Promise<ArticleMeta[]> {
-    const html = await httpClient.getHtml(this.categoryUrl);
-    const candidates = extractArticleMetaList(html, this.categoryUrl, "a[href*='finansial.bisnis.com/read/']");
+    const html = await httpClient.getHtml(this.sourceUrl);
+    const candidates = extractArticleMetaList(
+      html,
+      this.sourceUrl,
+      "a[href*='finansial.bisnis.com/read/']",
+    );
 
     return candidates.filter((item) => /\/read\/\d{8}\//.test(item.url)).slice(0, 50);
   }

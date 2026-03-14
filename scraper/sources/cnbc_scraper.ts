@@ -5,14 +5,14 @@ import { httpClient } from "../utils/http_client";
 
 export class CnbcScraper implements SourceScraper {
   readonly sourceName = "CNBC Indonesia";
-  readonly sourceId = 1;
-  readonly categoryUrl = "https://www.cnbcindonesia.com/market";
+  readonly sourceId = "cnbc-indonesia";
+  readonly sourceUrl = "https://www.cnbcindonesia.com/market";
 
   async getArticleList(): Promise<ArticleMeta[]> {
-    const html = await httpClient.getHtml(this.categoryUrl);
+    const html = await httpClient.getHtml(this.sourceUrl);
     const candidates = extractArticleMetaList(
       html,
-      this.categoryUrl,
+      this.sourceUrl,
       "a[href*='cnbcindonesia.com/market/']",
     );
 
