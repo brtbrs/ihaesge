@@ -1,5 +1,5 @@
 import * as cheerio from "cheerio";
-import { ArticleMeta, SourceScraper } from "../types";
+import { ArticleContent, ArticleMeta, SourceScraper } from "../types";
 import { extractArticleMetaList } from "../utils/article_extractor";
 import { httpClient } from "../utils/http_client";
 
@@ -19,17 +19,21 @@ export class CnbcScraper implements SourceScraper {
     return candidates.filter((item) => /\/market\/\d{8}\//.test(item.url)).slice(0, 50);
   }
 
-  async getArticleContent(url: string): Promise<string> {
+  async getArticleContent(url: string): Promise<ArticleContent> {
     const html = await httpClient.getHtml(url);
     const $ = cheerio.load(html);
-    const articleHtml = $("article .detail_text, .detail_text, article").first().html() ?? "";
+    const title = $("h1").first().text().trim() || $("title").text().trim() || undefined;
+    const contentHtml = $("article .detail_text, .detail_text, article").first().html() ?? "";
 
-    if (!articleHtml.trim()) {
+    if (!contentHtml.trim()) {
       const rendered = await httpClient.getHtml(url, true);
       const rendered$ = cheerio.load(rendered);
-      return rendered$("article .detail_text, .detail_text, article").first().html() ?? "";
+      return {
+        title: rendered$("h1").first().text().trim() || rendered$("title").text().trim() || undefined,
+        contentHtml: rendered$("article .detail_text, .detail_text, article").first().html() ?? "",
+      };
     }
 
-    return articleHtml;
+    return { title, contentHtml };
   }
 }

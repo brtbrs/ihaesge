@@ -4,102 +4,82 @@ import { PrismaClient } from "@prisma/client";
 import { BisnisScraper } from "./sources/bisnis_scraper";
 import { CnbcScraper } from "./sources/cnbc_scraper";
 import { KontanScraper } from "./sources/kontan_scraper";
+import { NewsService } from "./services/news_service";
 import { SourceScraper } from "./types";
 import { cleanHtmlToText } from "./utils/html_cleaner";
+import { delay } from "./utils/http_client";
 
 dotenv.config({ path: "../.env" });
 
 const prisma = new PrismaClient();
+const newsService = new NewsService(prisma);
 
 const scrapers: SourceScraper[] = [new CnbcScraper(), new KontanScraper(), new BisnisScraper()];
 
 async function processSource(scraper: SourceScraper): Promise<void> {
-  const startTime = new Date();
-
-  const pipelineLog = await prisma.pipelineLog.create({
-    data: {
-      sourceId: scraper.sourceId,
-      startTime,
-    },
-  });
-
   let scrapedCount = 0;
   let insertedCount = 0;
+  let skippedCount = 0;
+  let errorCount = 0;
+
+  const { pipelineLogId, lastScrappedAt } = await newsService.startPipeline(scraper);
 
   try {
-    await prisma.source.upsert({
-      where: { id: scraper.sourceId },
-      update: {
-        name: scraper.sourceName,
-        url: scraper.sourceUrl,
-        rssUrl: scraper.rssUrl,
-        active: true,
-      },
-      create: {
-        id: scraper.sourceId,
-        name: scraper.sourceName,
-        url: scraper.sourceUrl,
-        rssUrl: scraper.rssUrl,
-        active: true,
-      },
-    });
-
     const articles = await scraper.getArticleList();
     scrapedCount = articles.length;
 
     for (const article of articles) {
-      const exists = await prisma.news.findUnique({ where: { sourceUrl: article.url }, select: { id: true } });
-      if (exists) {
-        continue;
+      if (newsService.shouldStopScanning(article, lastScrappedAt)) {
+        break;
       }
 
-      const rawHtml = await scraper.getArticleContent(article.url);
-      const cleanContent = cleanHtmlToText(rawHtml);
+      try {
+        const articleData = await scraper.getArticleContent(article.url);
+        const cleanContent = cleanHtmlToText(articleData.contentHtml);
 
-      if (!cleanContent) {
-        continue;
+        if (!cleanContent) {
+          skippedCount += 1;
+          await delay(1_500);
+          continue;
+        }
+
+        const title = articleData.title?.trim() || article.title.trim() || "Untitled";
+
+        const inserted = await newsService.createNewsIfNotExists({
+          scraper,
+          article,
+          title,
+          content: cleanContent,
+        });
+
+        if (inserted) {
+          insertedCount += 1;
+        } else {
+          skippedCount += 1;
+        }
+      } catch (error) {
+        errorCount += 1;
+        skippedCount += 1;
+        console.error(`[${scraper.sourceName}] Failed article: ${article.url}`, error);
       }
 
-      await prisma.news.create({
-        data: {
-          sourceId: scraper.sourceId,
-          sourceUrl: article.url,
-          originalTitle: article.title,
-          originalContent: cleanContent,
-          originalLanguage: "id",
-          status: "PENDING",
-          publishedAt: article.publishedAt,
-        },
-      });
-
-      insertedCount += 1;
+      await delay(1_500);
     }
 
-    await prisma.pipelineLog.update({
-      where: { id: pipelineLog.id },
-      data: {
-        endTime: new Date(),
-        totalFound: scrapedCount,
-        totalSaved: insertedCount,
-        totalSkipped: scrapedCount - insertedCount,
-      },
+    await newsService.finishPipeline(scraper, pipelineLogId, {
+      scraped: scrapedCount,
+      inserted: insertedCount,
+      skipped: skippedCount,
     });
 
-    await prisma.source.update({
-      where: { id: scraper.sourceId },
-      data: { lastScrappedAt: new Date() },
-    });
-
-    console.log(`[${scraper.sourceName}] Scraped=${scrapedCount}, Inserted=${insertedCount}`);
+    console.log(
+      `[${scraper.sourceName}]\nScraped: ${scrapedCount}\nInserted: ${insertedCount}\nSkipped: ${skippedCount}\nErrors: ${errorCount}`,
+    );
   } catch (error) {
-    await prisma.pipelineLog.update({
-      where: { id: pipelineLog.id },
-      data: {
-        endTime: new Date(),
-        totalFound: scrapedCount,
-        totalSaved: insertedCount,
-        totalSkipped: Math.max(scrapedCount - insertedCount, 0),
-      },
+    await newsService.failPipeline(pipelineLogId, {
+      scraped: scrapedCount,
+      inserted: insertedCount,
+      skipped: skippedCount,
     });
 
     console.error(`[${scraper.sourceName}] Failed`, error);
