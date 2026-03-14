@@ -21,13 +21,13 @@ export function extractArticleMetaList(
 
   return $(linkSelector)
     .toArray()
-    .map((el) => {
+    .reduce<ArticleMeta[]>((articles, el) => {
       const link = $(el);
       const rawHref = link.attr("href");
-      if (!rawHref) return null;
+      if (!rawHref) return articles;
 
       const url = normalizeUrl(baseUrl, rawHref);
-      if (seen.has(url)) return null;
+      if (seen.has(url)) return articles;
       seen.add(url);
 
       const title =
@@ -38,11 +38,12 @@ export function extractArticleMetaList(
       const publishedText = dateSelector ? link.find(dateSelector).first().text().trim() : undefined;
       const publishedAt = publishedText ? new Date(publishedText) : undefined;
 
-      return {
+      articles.push({
         title,
         url,
         publishedAt: publishedAt && !Number.isNaN(publishedAt.getTime()) ? publishedAt : undefined,
-      };
-    })
-    .filter((item): item is ArticleMeta => Boolean(item));
+      });
+
+      return articles;
+    }, []);
 }
