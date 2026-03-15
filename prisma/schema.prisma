@@ -59,23 +59,25 @@ model CorporateEvent {
 }
 
 model News {
-  id               String     @id @default(uuid())
-  sourceId         String
-  sourceUrl        String     @unique
-  originalTitle    String
-  originalContent  String
-  originalLanguage String     @default("id")
-  titleId          String?
-  titleEn          String?
-  summaryId        String?
-  summaryEn        String?
-  contentId        String?
-  contentEn        String?
-  sentiment        Sentiment?
-  duplicateId      String?
-  publishedAt      DateTime?
-  createdAt        DateTime   @default(now())
-  status           NewsStatus @default(PENDING)
+  id                String     @id @default(uuid())
+  sourceId          String
+  sourceUrl         String     @unique
+  originalTitle     String
+  originalContent   String
+  originalLanguage  String     @default("id")
+  embedding         Unsupported("vector(1536)")?
+  titleFingerprint  String?    @unique
+  titleId           String?
+  titleEn           String?
+  summaryId         String?
+  summaryEn         String?
+  contentId         String?
+  contentEn         String?
+  sentiment         Sentiment?
+  duplicateId       String?
+  publishedAt       DateTime?
+  createdAt         DateTime   @default(now())
+  status            NewsStatus @default(PENDING)
 
   stocks             NewsStock[]
   tags               NewsTag[]
