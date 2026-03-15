@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { ArticleMeta, SourceScraper } from "../types";
+import { generateFingerprint } from "../utils/title_fingerprint";
 
 type PipelineContext = {
   pipelineLogId: string;
@@ -55,12 +56,15 @@ export class NewsService {
   }
 
   async createNewsIfNotExists(input: CreateNewsInput): Promise<boolean> {
-    const exists = await this.prisma.news.findUnique({
-      where: { sourceUrl: input.article.url },
+    const titleFingerprint = generateFingerprint(input.title);
+
+    const existing = await this.prisma.news.findUnique({
+      where: { titleFingerprint },
       select: { id: true },
     });
 
-    if (exists) {
+    if (existing) {
+      console.log("Duplicate skipped:", input.title);
       return false;
     }
 
@@ -73,6 +77,7 @@ export class NewsService {
           originalContent: input.content,
           originalLanguage: "id",
           status: "PENDING",
+          titleFingerprint,
           publishedAt: input.article.publishedAt,
         },
       });
@@ -82,7 +87,11 @@ export class NewsService {
       const target = knownError.meta?.target;
       const targetList = Array.isArray(target) ? target : typeof target === "string" ? [target] : [];
 
-      if (knownError.code === "P2002" && targetList.some((item) => item.includes("sourceUrl"))) {
+      if (
+        knownError.code === "P2002" &&
+        targetList.some((item) => item.includes("sourceUrl") || item.includes("titleFingerprint"))
+      ) {
+        console.log("Duplicate skipped:", input.title);
         return false;
       }
 
