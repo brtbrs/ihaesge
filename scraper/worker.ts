@@ -73,7 +73,7 @@ async function processSource(scraper: SourceScraper): Promise<void> {
         const errorMessage = error instanceof Error ? error.message : String(error);
         skippedDetails.push({
           title,
-          reason: "failed to process article",
+          reason: errorMessage,
         });
         errorDetails.push({
           title,

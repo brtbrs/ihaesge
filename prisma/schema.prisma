@@ -62,6 +62,7 @@ model News {
   id               String     @id @default(uuid())
   sourceId         String
   sourceUrl        String     @unique
+  titleFingerprint String     @unique
   originalTitle    String
   originalContent  String
   originalLanguage String     @default("id")
