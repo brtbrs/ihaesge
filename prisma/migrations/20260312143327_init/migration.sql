@@ -4,3 +4,5 @@ CREATE TABLE "Placeholder" (
 
     CONSTRAINT "Placeholder_pkey" PRIMARY KEY ("id")
 );
+
+CREATE EXTENSION IF NOT EXISTS vector;
