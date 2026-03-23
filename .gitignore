@@ -10,3 +10,4 @@ backend/.env
 .venv/
 postgres_data/
 node_modules/
+.DS_Store

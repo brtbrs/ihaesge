@@ -9,7 +9,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - "./postgres_data:/var/lib/postgresql/data:rw"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ihaesge} -d ${POSTGRES_DB:-ihaesgedibi}"]
       interval: 10s
@@ -43,6 +43,3 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
-
-volumes:
-  postgres_data:
