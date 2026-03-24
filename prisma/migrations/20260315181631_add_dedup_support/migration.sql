@@ -6,11 +6,13 @@
 
 */
 -- AlterTable
-ALTER TABLE "News" ADD COLUMN     "embedding" vector(1536),
-ADD COLUMN     "titleFingerprint" TEXT;
+ALTER TABLE "News" 
+ADD COLUMN "embedding" vector(1536),
+ADD COLUMN "titleFingerprint" TEXT;
 
 -- DropTable
 DROP TABLE "Placeholder";
 
 -- CreateIndex
 CREATE UNIQUE INDEX "News_titleFingerprint_key" ON "News"("titleFingerprint");
+CREATE INDEX news_embedding_idx ON "News" USING ivfflat (embedding vector_cosine_ops);
