@@ -32,6 +32,29 @@ const NOISE_SELECTORS = [
   "[class*='tag']",
 ];
 
+type ExtractedArticle = {
+  title: string;
+  content: string;
+};
+
+function extractArticle(raw: string): ExtractedArticle {
+  const titleMatch = raw.match(/<tabTitle>(.*?)<\/tabTitle>/s);
+  const contentMatch = raw.match(/<selection>(.*?)<\/selection>/s);
+
+  const cleanText = (text: string): string => {
+    return text
+      .replace(/<[^>]+>/g, "")
+      .replace(/&quot;/g, '"')
+      .replace(/\s+/g, " ")
+      .trim();
+  };
+
+  return {
+    title: titleMatch ? cleanText(titleMatch[1]) : "",
+    content: contentMatch ? cleanText(contentMatch[1]) : "",
+  };
+}
+
 function extractBestContentHtml($: cheerio.CheerioAPI): string {
   const candidates = CONTENT_SELECTORS.flatMap((selector) =>
     $(selector)
@@ -72,12 +95,28 @@ export class KontanScraper implements SourceScraper {
 
   async getArticleContent(url: string): Promise<ArticleContent> {
     const html = await httpClient.getHtml(url);
+    const extractedFromRaw = extractArticle(html);
+    if (extractedFromRaw.content) {
+      return {
+        title: extractedFromRaw.title || undefined,
+        contentHtml: extractedFromRaw.content,
+      };
+    }
+
     const $ = cheerio.load(html);
     const title = $("h1").first().text().trim() || $("title").text().trim() || undefined;
     const contentHtml = extractBestContentHtml($);
 
     if (!contentHtml.trim()) {
       const rendered = await httpClient.getHtml(url, true);
+      const extractedFromRendered = extractArticle(rendered);
+      if (extractedFromRendered.content) {
+        return {
+          title: extractedFromRendered.title || undefined,
+          contentHtml: extractedFromRendered.content,
+        };
+      }
+
       const rendered$ = cheerio.load(rendered);
       return {
         title: rendered$("h1").first().text().trim() || rendered$("title").text().trim() || undefined,
