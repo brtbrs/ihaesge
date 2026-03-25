@@ -67,7 +67,7 @@ export class CnbcScraper implements SourceScraper {
   }
 
   private isArticleUrl(url: string): boolean {
-    return /cnbcindonesia\.com\/(market|news)\/\d{8}\//.test(url);
+    return /cnbcindonesia\.com\/(market|news)\/(?:\d{8}|\d{14}-\d+-\d+)\//.test(url);
   }
 
   private extractFromJsonLd(html: string): ArticleMeta[] {
