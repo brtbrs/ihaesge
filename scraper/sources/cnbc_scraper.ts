@@ -13,7 +13,7 @@ export class CnbcScraper implements SourceScraper {
     const candidates = extractArticleMetaList(
       html,
       this.sourceUrl,
-      "a[href*='cnbcindonesia.com/market/']",
+      "a[href*='/market/'], a[href*='cnbcindonesia.com/market/']",
     );
 
     return candidates.filter((item) => /\/market\/\d{8}\//.test(item.url)).slice(0, 50);
