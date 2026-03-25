@@ -7,7 +7,6 @@ export type ArticleMeta = {
 export type ArticleContent = {
   contentHtml: string;
   title?: string;
-  publishedAt?: Date;
 };
 
 export interface SourceScraper {

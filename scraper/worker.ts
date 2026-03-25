@@ -7,7 +7,6 @@ import { NewsService } from "./services/news_service";
 import { SourceScraper } from "./types";
 import { cleanHtmlToText } from "./utils/html_cleaner";
 import { delay } from "./utils/http_client";
-import { cleanCnbcText } from "./utils/source_text_cleaner";
 
 dotenv.config({ path: "../.env" });
 
@@ -49,12 +48,8 @@ async function processSource(scraper: SourceScraper): Promise<void> {
 
       try {
         const articleData = await scraper.getArticleContent(article.url);
-        let cleanContent = cleanHtmlToText(articleData.contentHtml);
+        const cleanContent = cleanHtmlToText(articleData.contentHtml);
         const title = articleData.title?.trim() || article.title.trim() || "Untitled";
-
-        if (scraper.sourceId === "cnbc-indonesia") {
-          cleanContent = cleanCnbcText(cleanContent, title);
-        }
 
         if (!cleanContent) {
           skippedCount += 1;
@@ -68,10 +63,7 @@ async function processSource(scraper: SourceScraper): Promise<void> {
 
         const inserted = await newsService.createNewsIfNotExists({
           scraper,
-          article: {
-            ...article,
-            publishedAt: article.publishedAt ?? articleData.publishedAt,
-          },
+          article,
           title,
           content: cleanContent,
         });
