@@ -1,0 +1,20 @@
+docker exec -it ihaesge-postgres psql -U ihaesge -d ihaesgedibi 
+TRUNCATE TABLE "News" RESTART IDENTITY CASCADE;
+
+run these from root folder:
+npx prisma migrate dev
+npx prisma generate --schema=prisma/schema.prisma
+
+npx prisma migrate dev --name init 
+npx prisma migrate dev --name add_models
+npx prisma migrate dev --name add_dedup_support
+npx prisma migrate dev --name add_dedup_support --schema=../prisma/schema.prisma
+
+in development:
+npx prisma migrate reset
+
+in production:
+prisma migrate deploy
+
+cd scraper
+npm run start

@@ -19,6 +19,19 @@ const BLOCKED_SELECTORS = [
   "[class*='comment']",
   "[class*='promo']",
   "[aria-label*='share' i]",
+  ".ads",
+  ".advertisement",
+  ".share",
+  ".social",
+  ".tags",
+  ".related",
+  ".comment",
+  ".komentar",
+  ".baca-juga",
+  ".lihat-juga",
+  ".paging",
+  ".pagination",
+  ".banner"
 ];
 
 export function cleanHtmlToText(rawHtml: string): string {
