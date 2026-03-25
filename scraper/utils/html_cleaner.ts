@@ -59,29 +59,48 @@ export function cleanHtmlToText(rawHtml: string): string {
     .map((line) => line.trim())
     .filter(Boolean);
 
-  const NOISE_LINE_PATTERNS: RegExp[] = [
+  const genericNoisePatterns: RegExp[] = [
     /Add\s+.*preferred source on Google/i,
     /^Add$/i,
     /^as\s+a\s+preferred$/i,
     /^source\s+on\s+Google$/i,
-    /^Saksikan\s+video\s+di\s+bawah\s+ini:?$/i,
-    /^\[Gambas:/i,
     /^Next\s+Article$/i,
-    /^Video:\s+/i,
-    /^\([^)]*\/[a-z]{2,5}\)$/i,
   ];
 
   const cleanedLines = lines.filter(
-    (line) => !NOISE_LINE_PATTERNS.some((pattern) => pattern.test(line)),
+    (line) => !genericNoisePatterns.some((pattern) => pattern.test(line)),
   );
 
-  const normalizedLines = removeLeadingByline(cleanedLines);
+  const text = cleanedLines.join("\n");
+
+  return text;
+}
+
+const CNBC_INDONESIA_NOISE_LINE_PATTERNS: RegExp[] = [
+    /^Saksikan\s+video\s+di\s+bawah\s+ini:?$/i,
+    /^\[Gambas:/i,
+    /^Video:\s+/i,
+    /^\([^)]*\/[a-z]{2,5}\)$/i,
+];
+
+export function cleanCnbcIndonesiaHtmlToText(rawHtml: string): string {
+  const baseCleanedText = cleanHtmlToText(rawHtml);
+  const lines = baseCleanedText
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const cleanedLines = lines.filter(
+    (line) => !CNBC_INDONESIA_NOISE_LINE_PATTERNS.some((pattern) => pattern.test(line)),
+  );
+
+  const normalizedLines = removeLeadingCnbcByline(cleanedLines);
   const text = normalizedLines.join("\n");
 
   return text;
 }
 
-function removeLeadingByline(lines: string[]): string[] {
+function removeLeadingCnbcByline(lines: string[]): string[] {
   if (lines.length < 3) {
     return lines;
   }
@@ -91,8 +110,10 @@ function removeLeadingByline(lines: string[]): string[] {
   const dateLine = lines[2];
 
   const looksLikeReporter = /^[A-Z][A-Za-z.'-]*(?:\s+[A-Z][A-Za-z.'-]*)+,?$/.test(reporterLine);
-  const looksLikeOutlet = /^(CNBC Indonesia|Bisnis\.com),?$/.test(outletLine);
-  const looksLikeDate = /^\d{1,2}\s+[A-Za-z]+\s+\d{4}\s+\d{1,2}:\d{2}$/.test(dateLine);
+  const looksLikeOutlet = /^CNBC Indonesia,?$/.test(outletLine);
+  const looksLikeDate = /^\d{1,2}\s+[A-Za-z]+\s+\d{4}\s+\d{1,2}:\d{2}(?::\d{2})?(?:,\s*[A-Z]{2,5})?$/.test(
+    dateLine,
+  );
 
   if (looksLikeReporter && looksLikeOutlet && looksLikeDate) {
     return lines.slice(3);
