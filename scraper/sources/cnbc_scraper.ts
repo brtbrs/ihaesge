@@ -167,7 +167,9 @@ export class CnbcScraper implements SourceScraper {
       .map((line) => line.trim())
       .filter(Boolean);
 
-    const dateLine = rawLines[2];
+    const dateLine = rawLines[3];
+    console.log(`rawLines[2]: ${rawLines[2]}`);
+    console.log(`rawLines[3]: ${rawLines[3]}`);
     if (!dateLine) {
       return undefined;
     }

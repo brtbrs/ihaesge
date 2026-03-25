@@ -105,18 +105,18 @@ function removeLeadingCnbcByline(lines: string[]): string[] {
     return lines;
   }
 
-  const reporterLine = lines[0];
-  const outletLine = lines[1];
-  const dateLine = lines[2];
+  const reporterLine = lines[1];
+  const outletLine = lines[2];
+  const dateLine = lines[3];
 
-  const looksLikeReporter = /^[A-Z][A-Za-z.'-]*(?:\s+[A-Z][A-Za-z.'-]*)+,?$/.test(reporterLine);
+  const looksLikeReporter = /^[A-Za-z][A-Za-z.'-]*(?:\s+[A-Za-z][A-Za-z.'-]*)*,?$/.test(reporterLine);
   const looksLikeOutlet = /^CNBC Indonesia,?$/.test(outletLine);
   const looksLikeDate = /^\d{1,2}\s+[A-Za-z]+\s+\d{4}\s+\d{1,2}:\d{2}(?::\d{2})?(?:,\s*[A-Z]{2,5})?$/.test(
     dateLine,
   );
 
   if (looksLikeReporter && looksLikeOutlet && looksLikeDate) {
-    return lines.slice(3);
+    return lines.slice(4);
   }
 
   return lines;
