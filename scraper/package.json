@@ -5,7 +5,7 @@
   "type": "commonjs",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "start": "ts-node worker.ts"
+    "start": "TZ=Asia/Jakarta ts-node worker.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
