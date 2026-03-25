@@ -39,7 +39,12 @@ async function processSource(scraper: SourceScraper): Promise<void> {
 
     for (const article of articles) {
       if (newsService.shouldStopScanning(article, lastScrappedAt)) {
-        break;
+        skippedCount += 1;
+        skippedDetails.push({
+          title: article.title.trim() || "Untitled",
+          reason: "older than the last successful scrape",
+        });
+        continue;
       }
 
       try {
