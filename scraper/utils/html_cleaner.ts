@@ -71,26 +71,45 @@ export function cleanHtmlToText(rawHtml: string): string {
     (line) => !genericNoisePatterns.some((pattern) => pattern.test(line)),
   );
 
-  const text = cleanedLines.join("\n");
+  const normalizedLines = removeLeadingTitleLine(cleanedLines);
+  const text = normalizedLines.join("\n");
   const normalizedText = removeKnownSourceLocationPrefixes(text);
 
   return normalizedText;
 }
 
+function removeLeadingTitleLine(lines: string[]): string[] {
+  if (lines.length < 2) {
+    return lines;
+  }
+
+  const firstLine = lines[0];
+  const secondLine = lines[1];
+  const firstWordCount = firstLine.split(/\s+/).length;
+  const secondWordCount = secondLine.split(/\s+/).length;
+
+  const looksLikeHeadline =
+    firstWordCount > 3 &&
+    secondWordCount > firstWordCount + 4;
+
+  if (looksLikeHeadline) {
+    return lines.slice(1);
+  }
+
+  return lines;
+}
+
 function removeKnownSourceLocationPrefixes(text: string): string {
   const lines = text
     .split("\n")
-    .map((line) => line.trim());
+    .map((line) => line.trim())
+    .map((line) =>
+      line
+        .replace(/^Jakarta,\s*CNBC\s+Indonesia\s*-\s*/i, "")
+        .replace(/^Bisnis\.com,\s*Jakarta\s*-\s*/i, ""),
+    );
 
-  if (lines.length === 0) {
-    return text;
-  }
-
-  const firstLine = lines[0]
-    .replace(/^Jakarta,\s*CNBC\s+Indonesia\s*-\s*/i, "")
-    .replace(/^Bisnis\.com,\s*Jakarta\s*-\s*/i, "");
-
-  return [firstLine, ...lines.slice(1)]
+  return lines
     .filter(Boolean)
     .join("\n");
 }
@@ -124,18 +143,26 @@ function removeLeadingCnbcByline(lines: string[]): string[] {
     return lines;
   }
 
-  const reporterLine = lines[1];
-  const outletLine = lines[2];
-  const dateLine = lines[3];
+  const lineOffsets = [0, 1];
 
-  const looksLikeReporter = /^[A-Za-z][A-Za-z.'-]*(?:\s+[A-Za-z][A-Za-z.'-]*)*,?$/.test(reporterLine);
-  const looksLikeOutlet = /^CNBC Indonesia,?$/.test(outletLine);
-  const looksLikeDate = /^\d{1,2}\s+[A-Za-z]+\s+\d{4}\s+\d{1,2}:\d{2}(?::\d{2})?(?:,\s*[A-Z]{2,5})?$/.test(
-    dateLine,
-  );
+  for (const offset of lineOffsets) {
+    const reporterLine = lines[offset];
+    const outletLine = lines[offset + 1];
+    const dateLine = lines[offset + 2];
 
-  if (looksLikeReporter && looksLikeOutlet && looksLikeDate) {
-    return lines.slice(4);
+    if (!reporterLine || !outletLine || !dateLine) {
+      continue;
+    }
+
+    const looksLikeReporter = /^[A-Za-z][A-Za-z.'-]*(?:\s+[A-Za-z][A-Za-z.'-]*)*,?$/.test(reporterLine);
+    const looksLikeOutlet = /^CNBC Indonesia,?$/.test(outletLine);
+    const looksLikeDate = /^\d{1,2}\s+[A-Za-z]+\s+\d{4}\s+\d{1,2}:\d{2}(?::\d{2})?(?:,\s*[A-Z]{2,5})?$/.test(
+      dateLine,
+    );
+
+    if (looksLikeReporter && looksLikeOutlet && looksLikeDate) {
+      return lines.slice(offset + 3);
+    }
   }
 
   return lines;
