@@ -49,15 +49,22 @@ export function cleanHtmlToText(rawHtml: string): string {
         ? $("main").first()
         : $("body");
 
-  const text = articleRoot
+  const lines = articleRoot
     .text()
     .replace(/\u00a0/g, " ")
     .replace(/[\t\r]+/g, " ")
     .replace(/\n{2,}/g, "\n")
     .split("\n")
     .map((line) => line.trim())
-    .filter(Boolean)
-    .join("\n");
+    .filter(Boolean);
+
+  const cleanedLines = lines.filter(
+    (line) =>
+      !/Add\s+.*preferred source on Google/i.test(line) &&
+      !/^\([a-z]{2,5}\/[a-z]{2,5}\)$/i.test(line),
+  );
+
+  const text = cleanedLines.join("\n");
 
   return text;
 }
