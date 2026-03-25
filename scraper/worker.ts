@@ -3,7 +3,6 @@ import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client";
 import { BisnisScraper } from "./sources/bisnis_scraper";
 import { CnbcScraper } from "./sources/cnbc_scraper";
-import { KontanScraper } from "./sources/kontan_scraper";
 import { NewsService } from "./services/news_service";
 import { SourceScraper } from "./types";
 import { cleanHtmlToText } from "./utils/html_cleaner";
@@ -18,11 +17,10 @@ const target = process.env.SCRAPER;
 
 const scrapers: SourceScraper[] = [
   new CnbcScraper(),
-  new KontanScraper(),
   new BisnisScraper()
 ].filter(s => !target || s.sourceName === target);
 
-// const scrapers: SourceScraper[] = [new CnbcScraper(), new KontanScraper(), new BisnisScraper()];
+// const scrapers: SourceScraper[] = [new CnbcScraper(), new BisnisScraper()];
 
 async function processSource(scraper: SourceScraper): Promise<void> {
   let scrapedCount = 0;
