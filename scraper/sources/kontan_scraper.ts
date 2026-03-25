@@ -5,10 +5,13 @@ import { httpClient } from "../utils/http_client";
 
 const CONTENT_SELECTORS = [
   ".read__content",
-  ".artikel",
+  ".tmptartikel",
   ".article__content",
+  ".artikel",
   ".post-content",
   "article",
+  "main article",
+  "main",
 ];
 
 const NOISE_SELECTORS = [
@@ -17,6 +20,9 @@ const NOISE_SELECTORS = [
   "noscript",
   "iframe",
   "form",
+  "button",
+  "svg",
+  "figure .caption_photo",
   ".social",
   ".share",
   ".breadcrumb",
@@ -25,6 +31,7 @@ const NOISE_SELECTORS = [
   ".related",
   ".ads",
   "[class*='ads']",
+  "[id*='ads']",
   "[class*='share']",
   "[class*='social']",
   "[class*='related']",
@@ -33,26 +40,107 @@ const NOISE_SELECTORS = [
 ];
 
 type ExtractedArticle = {
-  title: string;
-  content: string;
+  title?: string;
+  contentHtml?: string;
 };
 
-function extractArticle(raw: string): ExtractedArticle {
-  const titleMatch = raw.match(/<tabTitle>(.*?)<\/tabTitle>/s);
-  const contentMatch = raw.match(/<selection>(.*?)<\/selection>/s);
+type JsonLdNode = {
+  "@type"?: string | string[];
+  headline?: string;
+  name?: string;
+  articleBody?: string;
+  description?: string;
+  mainEntity?: JsonLdNode;
+  mainEntityOfPage?: JsonLdNode;
+  itemListElement?: JsonLdNode[];
+  [key: string]: unknown;
+};
 
-  const cleanText = (text: string): string => {
-    return text
-      .replace(/<[^>]+>/g, "")
-      .replace(/&quot;/g, '"')
-      .replace(/\s+/g, " ")
-      .trim();
-  };
+function normalizeText(text: string): string {
+  return text
+    .replace(/\u00a0/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
-  return {
-    title: titleMatch ? cleanText(titleMatch[1]) : "",
-    content: contentMatch ? cleanText(contentMatch[1]) : "",
-  };
+function toParagraphHtml(rawText: string): string {
+  const paragraphs = rawText
+    .split(/\n+/)
+    .map((line) => normalizeText(line))
+    .filter(Boolean);
+
+  return paragraphs.map((paragraph) => `<p>${paragraph}</p>`).join("");
+}
+
+function findArticleLikeNode(node: unknown): JsonLdNode | null {
+  if (!node || typeof node !== "object") {
+    return null;
+  }
+
+  const parsedNode = node as JsonLdNode;
+  const type = parsedNode["@type"];
+  const typeList = Array.isArray(type) ? type : type ? [type] : [];
+  const isArticleType = typeList.some((item) => /article|news/i.test(item));
+
+  if (isArticleType && (parsedNode.articleBody || parsedNode.headline || parsedNode.name)) {
+    return parsedNode;
+  }
+
+  for (const value of Object.values(parsedNode)) {
+    if (Array.isArray(value)) {
+      for (const child of value) {
+        const found = findArticleLikeNode(child);
+        if (found) {
+          return found;
+        }
+      }
+      continue;
+    }
+
+    const found = findArticleLikeNode(value);
+    if (found) {
+      return found;
+    }
+  }
+
+  return null;
+}
+
+function extractFromJsonLd($: cheerio.CheerioAPI): ExtractedArticle {
+  const scripts = $("script[type='application/ld+json']").toArray();
+
+  for (const script of scripts) {
+    const jsonText = $(script).contents().text().trim();
+    if (!jsonText) {
+      continue;
+    }
+
+    try {
+      const parsed = JSON.parse(jsonText) as unknown;
+      const articleNode = findArticleLikeNode(parsed);
+      if (!articleNode) {
+        continue;
+      }
+
+      const title = normalizeText(articleNode.headline || articleNode.name || "");
+      const articleBodyText = normalizeText(articleNode.articleBody || "");
+
+      if (articleBodyText) {
+        return {
+          title: title || undefined,
+          contentHtml: toParagraphHtml(articleBodyText),
+        };
+      }
+
+      if (title) {
+        return { title };
+      }
+    } catch {
+      // Intentionally continue to the next JSON-LD script.
+    }
+  }
+
+  return {};
 }
 
 function extractBestContentHtml($: cheerio.CheerioAPI): string {
@@ -63,20 +151,55 @@ function extractBestContentHtml($: cheerio.CheerioAPI): string {
         const node = $(element).clone();
         NOISE_SELECTORS.forEach((noiseSelector) => node.find(noiseSelector).remove());
 
-        const paragraphCount = node.find("p").length;
-        const textLength = node.text().replace(/\s+/g, " ").trim().length;
-        const score = paragraphCount * 1_000 + textLength;
+        const paragraphs = node
+          .find("p")
+          .toArray()
+          .map((paragraph) => normalizeText($(paragraph).text()))
+          .filter((text) => text.length >= 30);
+
+        const paragraphHtml = node
+          .find("p")
+          .toArray()
+          .map((paragraph) => {
+            const text = normalizeText($(paragraph).text());
+            return text.length >= 30 ? `<p>${text}</p>` : "";
+          })
+          .filter(Boolean)
+          .join("");
+
+        const textLength = paragraphs.join(" ").length;
+        const score = paragraphs.length * 2_000 + textLength;
 
         return {
-          html: node.html() ?? "",
+          html: paragraphHtml || (node.html() ?? ""),
           score,
+          textLength,
         };
       }),
   )
     .filter((candidate) => candidate.html.trim().length > 0)
     .sort((left, right) => right.score - left.score);
 
-  return candidates[0]?.html ?? "";
+  return candidates[0]?.textLength && candidates[0].textLength >= 120 ? candidates[0].html : "";
+}
+
+function parseArticleDocument(html: string): ExtractedArticle {
+  const $ = cheerio.load(html);
+  const title = $("h1").first().text().trim() || $("title").text().trim() || undefined;
+
+  const fromJsonLd = extractFromJsonLd($);
+  if (fromJsonLd.contentHtml) {
+    return {
+      title: fromJsonLd.title || title,
+      contentHtml: fromJsonLd.contentHtml,
+    };
+  }
+
+  const contentHtml = extractBestContentHtml($);
+  return {
+    title: title || fromJsonLd.title,
+    contentHtml: contentHtml || undefined,
+  };
 }
 
 export class KontanScraper implements SourceScraper {
@@ -95,35 +218,21 @@ export class KontanScraper implements SourceScraper {
 
   async getArticleContent(url: string): Promise<ArticleContent> {
     const html = await httpClient.getHtml(url);
-    const extractedFromRaw = extractArticle(html);
-    if (extractedFromRaw.content) {
+    const extracted = parseArticleDocument(html);
+
+    if (extracted.contentHtml?.trim()) {
       return {
-        title: extractedFromRaw.title || undefined,
-        contentHtml: extractedFromRaw.content,
+        title: extracted.title,
+        contentHtml: extracted.contentHtml,
       };
     }
 
-    const $ = cheerio.load(html);
-    const title = $("h1").first().text().trim() || $("title").text().trim() || undefined;
-    const contentHtml = extractBestContentHtml($);
+    const renderedHtml = await httpClient.getHtml(url, true);
+    const renderedExtracted = parseArticleDocument(renderedHtml);
 
-    if (!contentHtml.trim()) {
-      const rendered = await httpClient.getHtml(url, true);
-      const extractedFromRendered = extractArticle(rendered);
-      if (extractedFromRendered.content) {
-        return {
-          title: extractedFromRendered.title || undefined,
-          contentHtml: extractedFromRendered.content,
-        };
-      }
-
-      const rendered$ = cheerio.load(rendered);
-      return {
-        title: rendered$("h1").first().text().trim() || rendered$("title").text().trim() || undefined,
-        contentHtml: extractBestContentHtml(rendered$),
-      };
-    }
-
-    return { title, contentHtml };
+    return {
+      title: renderedExtracted.title || extracted.title,
+      contentHtml: renderedExtracted.contentHtml || extracted.contentHtml || "",
+    };
   }
 }
