@@ -21,6 +21,7 @@ const BLOCKED_SELECTORS = [
   "[class*='promo']",
   "[class*='linksisip']",       //cnbcindonesia
   "[class*='lihatjg']",         //cnbcindonesia
+  "[class*='block text-base font-semibold text-white']",  //cnbcindonesia
   "[aria-label*='share' i]",
   ".ads",
   ".advertisement",
