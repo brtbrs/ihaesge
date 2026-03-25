@@ -72,8 +72,27 @@ export function cleanHtmlToText(rawHtml: string): string {
   );
 
   const text = cleanedLines.join("\n");
+  const normalizedText = removeKnownSourceLocationPrefixes(text);
 
-  return text;
+  return normalizedText;
+}
+
+function removeKnownSourceLocationPrefixes(text: string): string {
+  const lines = text
+    .split("\n")
+    .map((line) => line.trim());
+
+  if (lines.length === 0) {
+    return text;
+  }
+
+  const firstLine = lines[0]
+    .replace(/^Jakarta,\s*CNBC\s+Indonesia\s*-\s*/i, "")
+    .replace(/^Bisnis\.com,\s*Jakarta\s*-\s*/i, "");
+
+  return [firstLine, ...lines.slice(1)]
+    .filter(Boolean)
+    .join("\n");
 }
 
 const CNBC_INDONESIA_NOISE_LINE_PATTERNS: RegExp[] = [
