@@ -4,8 +4,8 @@ import { PrismaClient } from "@prisma/client";
 import { BisnisScraper } from "./sources/bisnis_scraper";
 import { CnbcScraper } from "./sources/cnbc_scraper";
 import { NewsService } from "./services/news_service";
-import { SourceScraper } from "./types";
-import { cleanHtmlToText } from "./utils/html_cleaner";
+import { ArticleMeta, SourceScraper } from "./types";
+import { cleanCnbcIndonesiaHtmlToText, cleanHtmlToText } from "./utils/html_cleaner";
 import { delay } from "./utils/http_client";
 
 dotenv.config({ path: "../.env" });
@@ -73,8 +73,15 @@ async function processSource(scraper: SourceScraper): Promise<void> {
 
       try {
         const articleData = await scraper.getArticleContent(article.url);
-        const cleanContent = cleanHtmlToText(articleData.contentHtml);
+        const cleanContent =
+          scraper.sourceId === "cnbc-indonesia"
+            ? cleanCnbcIndonesiaHtmlToText(articleData.contentHtml)
+            : cleanHtmlToText(articleData.contentHtml);
         const title = articleData.title?.trim() || article.title.trim() || "Untitled";
+        const articleWithPublishedAt: ArticleMeta = {
+          ...article,
+          publishedAt: article.publishedAt ?? articleData.publishedAt,
+        };
 
         if (!cleanContent) {
           skippedCount += 1;
@@ -88,7 +95,7 @@ async function processSource(scraper: SourceScraper): Promise<void> {
 
         const inserted = await newsService.createNewsIfNotExists({
           scraper,
-          article,
+          article: articleWithPublishedAt,
           title,
           content: cleanContent,
         });

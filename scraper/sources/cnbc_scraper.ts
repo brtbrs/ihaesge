@@ -33,17 +33,21 @@ export class CnbcScraper implements SourceScraper {
     const $ = cheerio.load(html);
     const title = $("h1").first().text().trim() || $("title").text().trim() || undefined;
     const contentHtml = $("article .detail_text, .detail_text, article").first().html() ?? "";
+    const publishedAt = this.extractPublishedAtFromDateLine(contentHtml);
 
     if (!contentHtml.trim()) {
       const rendered = await httpClient.getHtml(url, true);
       const rendered$ = cheerio.load(rendered);
+      const renderedContentHtml =
+        rendered$("article .detail_text, .detail_text, article").first().html() ?? "";
       return {
         title: rendered$("h1").first().text().trim() || rendered$("title").text().trim() || undefined,
-        contentHtml: rendered$("article .detail_text, .detail_text, article").first().html() ?? "",
+        contentHtml: renderedContentHtml,
+        publishedAt: this.extractPublishedAtFromDateLine(renderedContentHtml),
       };
     }
 
-    return { title, contentHtml };
+    return { title, contentHtml, publishedAt };
   }
 
   private mergeAndFilterCandidates(candidates: ArticleMeta[]): ArticleMeta[] {
@@ -152,5 +156,74 @@ export class CnbcScraper implements SourceScraper {
     }
 
     return undefined;
+  }
+
+  private extractPublishedAtFromDateLine(contentHtml: string): Date | undefined {
+    const rawLines = cheerio
+      .load(contentHtml)
+      .text()
+      .replace(/\u00a0/g, " ")
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    const dateLine = rawLines[2];
+    if (!dateLine) {
+      return undefined;
+    }
+
+    return this.parseCnbcDateLine(dateLine);
+  }
+
+  private parseCnbcDateLine(line: string): Date | undefined {
+    const normalized = line.replace(/,\s*[A-Z]{2,5}$/i, "").trim();
+    const match = normalized.match(
+      /^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?$/,
+    );
+
+    if (!match) {
+      return undefined;
+    }
+
+    const [, dayRaw, monthRaw, yearRaw, hourRaw, minuteRaw, secondRaw] = match;
+    const monthMap: Record<string, number> = {
+      january: 0,
+      february: 1,
+      march: 2,
+      april: 3,
+      may: 4,
+      june: 5,
+      july: 6,
+      august: 7,
+      september: 8,
+      october: 9,
+      november: 10,
+      december: 11,
+      januari: 0,
+      februari: 1,
+      maret: 2,
+      mei: 4,
+      juni: 5,
+      juli: 6,
+      agustus: 7,
+      oktober: 9,
+      desember: 11,
+    };
+    const month = monthMap[monthRaw.toLowerCase()];
+
+    if (month === undefined) {
+      return undefined;
+    }
+
+    const date = new Date(
+      Number(yearRaw),
+      month,
+      Number(dayRaw),
+      Number(hourRaw),
+      Number(minuteRaw),
+      secondRaw ? Number(secondRaw) : 0,
+    );
+
+    return Number.isNaN(date.getTime()) ? undefined : date;
   }
 }
