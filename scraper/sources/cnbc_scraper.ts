@@ -32,18 +32,19 @@ export class CnbcScraper implements SourceScraper {
     const html = await httpClient.getHtml(url);
     const $ = cheerio.load(html);
     const title = $("h1").first().text().trim() || $("title").text().trim() || undefined;
-    const contentHtml = $("article .detail_text, .detail_text, article").first().html() ?? "";
-    const publishedAt = this.extractPublishedAtFromDateLine(contentHtml);
+    const contentNode = $("article .detail_text, .detail_text, article").first();
+    const contentHtml = contentNode.html() ?? "";
+    const publishedAt = this.extractPublishedAt($, contentNode.text());
 
     if (!contentHtml.trim()) {
       const rendered = await httpClient.getHtml(url, true);
       const rendered$ = cheerio.load(rendered);
-      const renderedContentHtml =
-        rendered$("article .detail_text, .detail_text, article").first().html() ?? "";
+      const renderedContentNode = rendered$("article .detail_text, .detail_text, article").first();
+      const renderedContentHtml = renderedContentNode.html() ?? "";
       return {
         title: rendered$("h1").first().text().trim() || rendered$("title").text().trim() || undefined,
         contentHtml: renderedContentHtml,
-        publishedAt: this.extractPublishedAtFromDateLine(renderedContentHtml),
+        publishedAt: this.extractPublishedAt(rendered$, renderedContentNode.text()),
       };
     }
 
@@ -158,18 +159,26 @@ export class CnbcScraper implements SourceScraper {
     return undefined;
   }
 
-  private extractPublishedAtFromDateLine(contentHtml: string): Date | undefined {
-    const rawLines = cheerio
-      .load(contentHtml)
-      .text()
+  private extractPublishedAt($: cheerio.CheerioAPI, contentText: string): Date | undefined {
+    const metaPublishedAt =
+      $("meta[property='article:published_time']").attr("content") ||
+      $("meta[name='pubdate']").attr("content") ||
+      $("time[datetime]").first().attr("datetime");
+
+    if (metaPublishedAt) {
+      const metaDate = new Date(metaPublishedAt);
+      if (!Number.isNaN(metaDate.getTime())) {
+        return metaDate;
+      }
+    }
+
+    const rawLines = contentText
       .replace(/\u00a0/g, " ")
       .split("\n")
       .map((line) => line.trim())
       .filter(Boolean);
 
-    const dateLine = rawLines[3];
-    console.log(`rawLines[2]: ${rawLines[2]}`);
-    console.log(`rawLines[3]: ${rawLines[3]}`);
+    const dateLine = rawLines.find((line) => this.parseCnbcDateLine(line));
     if (!dateLine) {
       return undefined;
     }
