@@ -15,6 +15,21 @@ const newsService = new NewsService(prisma);
 
 const target = process.env.SCRAPER;
 
+const debugArticleLimitRaw = process.env.SCRAPER_ARTICLE_LIMIT;
+const debugArticleLimit = (() => {
+  if (!debugArticleLimitRaw) {
+    return undefined;
+  }
+
+  const parsed = Number.parseInt(debugArticleLimitRaw, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    console.warn(`Invalid SCRAPER_ARTICLE_LIMIT: ${debugArticleLimitRaw}. Ignoring.`);
+    return undefined;
+  }
+
+  return parsed;
+})();
+
 const scrapers: SourceScraper[] = [
   new CnbcScraper(),
   new BisnisScraper()
@@ -34,9 +49,19 @@ async function processSource(scraper: SourceScraper): Promise<void> {
 
   try {
     const articles = await scraper.getArticleList();
-    scrapedCount = articles.length;
+    const selectedArticles = debugArticleLimit
+      ? articles.slice(0, debugArticleLimit)
+      : articles;
+    scrapedCount = selectedArticles.length;
 
-    for (const article of articles) {
+    if (debugArticleLimit) {
+      console.log(
+        `[${scraper.sourceName}] Debug article limit active: ${selectedArticles.length}/${articles.length}`
+      );
+    }
+
+    for (const article of selectedArticles) {
+
       if (newsService.shouldStopScanning(article, lastScrappedAt)) {
         skippedCount += 1;
         skippedDetails.push({
