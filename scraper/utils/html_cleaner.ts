@@ -74,7 +74,28 @@ export function cleanHtmlToText(rawHtml: string): string {
     (line) => !NOISE_LINE_PATTERNS.some((pattern) => pattern.test(line)),
   );
 
-  const text = cleanedLines.join("\n");
+  const normalizedLines = removeLeadingByline(cleanedLines);
+  const text = normalizedLines.join("\n");
 
   return text;
+}
+
+function removeLeadingByline(lines: string[]): string[] {
+  if (lines.length < 3) {
+    return lines;
+  }
+
+  const reporterLine = lines[0];
+  const outletLine = lines[1];
+  const dateLine = lines[2];
+
+  const looksLikeReporter = /^[A-Z][A-Za-z.'-]*(?:\s+[A-Z][A-Za-z.'-]*)+,?$/.test(reporterLine);
+  const looksLikeOutlet = /^(CNBC Indonesia|Bisnis\.com),?$/.test(outletLine);
+  const looksLikeDate = /^\d{1,2}\s+[A-Za-z]+\s+\d{4}\s+\d{1,2}:\d{2}$/.test(dateLine);
+
+  if (looksLikeReporter && looksLikeOutlet && looksLikeDate) {
+    return lines.slice(3);
+  }
+
+  return lines;
 }
