@@ -58,10 +58,20 @@ export function cleanHtmlToText(rawHtml: string): string {
     .map((line) => line.trim())
     .filter(Boolean);
 
+  const NOISE_LINE_PATTERNS: RegExp[] = [
+    /Add\s+.*preferred source on Google/i,
+    /^Add$/i,
+    /^as\s+a\s+preferred$/i,
+    /^source\s+on\s+Google$/i,
+    /^Saksikan\s+video\s+di\s+bawah\s+ini:?$/i,
+    /^\[Gambas:/i,
+    /^Next\s+Article$/i,
+    /^Video:\s+/i,
+    /^\([^)]*\/[a-z]{2,5}\)$/i,
+  ];
+
   const cleanedLines = lines.filter(
-    (line) =>
-      !/Add\s+.*preferred source on Google/i.test(line) &&
-      !/^\([a-z]{2,5}\/[a-z]{2,5}\)$/i.test(line),
+    (line) => !NOISE_LINE_PATTERNS.some((pattern) => pattern.test(line)),
   );
 
   const text = cleanedLines.join("\n");
