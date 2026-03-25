@@ -14,7 +14,15 @@ dotenv.config({ path: "../.env" });
 const prisma = new PrismaClient();
 const newsService = new NewsService(prisma);
 
-const scrapers: SourceScraper[] = [new CnbcScraper(), new KontanScraper(), new BisnisScraper()];
+const target = process.env.SCRAPER;
+
+const scrapers: SourceScraper[] = [
+  new CnbcScraper(),
+  new KontanScraper(),
+  new BisnisScraper()
+].filter(s => !target || s.sourceName === target);
+
+// const scrapers: SourceScraper[] = [new CnbcScraper(), new KontanScraper(), new BisnisScraper()];
 
 async function processSource(scraper: SourceScraper): Promise<void> {
   let scrapedCount = 0;
