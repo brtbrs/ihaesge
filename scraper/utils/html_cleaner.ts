@@ -9,6 +9,7 @@ const BLOCKED_SELECTORS = [
   "nav",
   "header",
   "footer",
+  "figcaption",                 //cnbcindonesia
   "[class*='ads']",
   "[id*='ads']",
   "[class*='share']",
@@ -18,6 +19,8 @@ const BLOCKED_SELECTORS = [
   "[class*='breadcrumb']",
   "[class*='comment']",
   "[class*='promo']",
+  "[class*='linksisip']",       //cnbcindonesia
+  "[class*='lihatjg']",         //cnbcindonesia
   "[aria-label*='share' i]",
   ".ads",
   ".advertisement",

@@ -18,3 +18,5 @@ prisma migrate deploy
 
 cd scraper
 npm run start
+SCRAPER="CNBC Indonesia" npm run start
+SCRAPER="CNBC Indonesia" SCRAPER_ARTICLE_LIMIT=5 npm run start
